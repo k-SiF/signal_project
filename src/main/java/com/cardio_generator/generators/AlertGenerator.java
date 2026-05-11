@@ -6,7 +6,11 @@ import com.cardio_generator.outputs.OutputStrategy;
 
 public class AlertGenerator implements PatientDataGenerator {
 
+    // Changed variable from public to private: Google Java Style §5.2 spirit of encapsulation. 
     private static final Random randomGenerator = new Random();
+
+    // Renamed from AlertStates to alertStates. Google Java Style §5.2.5:
+    // field names must be lowerCamelCase, not UpperCamelCase.
     private boolean[] alertStates; // false = resolved, true = pressed
 
     public AlertGenerator(int patientCount) {
@@ -23,6 +27,8 @@ public class AlertGenerator implements PatientDataGenerator {
                     outputStrategy.output(patientId, System.currentTimeMillis(), "Alert", "resolved");
                 }
             } else {
+                // Renamed from Lambda to lambda per Google Java Style §5.2.5: 
+                // local variable names must be lowerCamelCase
                 double lambda = 0.1; // Average rate (alerts per period), adjust based on desired frequency
                 double p = -Math.expm1(-lambda); // Probability of at least one alert in the period
                 boolean alertTriggered = randomGenerator.nextDouble() < p;

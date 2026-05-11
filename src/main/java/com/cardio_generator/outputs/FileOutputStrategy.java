@@ -9,8 +9,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class FileOutputStrategy implements OutputStrategy {
 
+    // Renamed from BaseDirectory to baseDirectory. Google Java Style §5.2.5:
+    // field names must be lowerCamelCase.
     private String baseDirectory;
 
+    // Renamed from file_map to fileMap. Google Java Style §5.2.5:
+    // identifiers may not contain underscores. 
+    // Also changed visibility from public to private.
     private final ConcurrentHashMap<String, String> fileMap = new ConcurrentHashMap<>();
 
     public FileOutputStrategy(String baseDirectory) {
@@ -27,7 +32,9 @@ public class FileOutputStrategy implements OutputStrategy {
             System.err.println("Error creating base directory: " + e.getMessage());
             return;
         }
-        // Set the FilePath variable
+        // Renamed from FilePath to filePath. Google Java Style §5.2.5:
+        // local variable names must be lowerCamelCase.
+        // Set the filePath variable
         String filePath = fileMap.computeIfAbsent(label, k -> Paths.get(baseDirectory, label + ".txt").toString());
 
         // Write the data to the file
