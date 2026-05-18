@@ -4,43 +4,67 @@ import java.util.Random;
 
 import com.cardio_generator.outputs.OutputStrategy;
 
+/**
+ * Generates a simulated ECG waveform sample for each patient.
+ *
+ * <p>The waveform is synthesized from three sinusoidal components (P-wave,
+ * QRS complex, and T-wave) at frequencies derived from a randomized heart
+ * rate (60–80 bpm). A small amount of random noise is added each call.
+ *
+ * @author 6439058
+ */
 public class ECGDataGenerator implements PatientDataGenerator {
     private static final Random random = new Random();
     private double[] lastEcgValues;
     private static final double PI = Math.PI;
 
+    /**
+     * Constructs the generator and initializes per-patient last-value storage.
+     *
+     * @param patientCount number of patients to support
+     */
     public ECGDataGenerator(int patientCount) {
         lastEcgValues = new double[patientCount + 1];
-        // Initialize the last ECG value for each patient
         for (int i = 1; i <= patientCount; i++) {
-            lastEcgValues[i] = 0; // Initial ECG value can be set to 0
+            lastEcgValues[i] = 0;
         }
     }
 
+    /**
+     * Emits one ECG sample for the patient.
+     *
+     * @param patientId      patient identifier (1-based)
+     * @param outputStrategy destination for the sample
+     */
     @Override
     public void generate(int patientId, OutputStrategy outputStrategy) {
-        // TODO Check how realistic this data is and make it more realistic if necessary
         try {
             double ecgValue = simulateEcgWaveform(patientId, lastEcgValues[patientId]);
             outputStrategy.output(patientId, System.currentTimeMillis(), "ECG", Double.toString(ecgValue));
             lastEcgValues[patientId] = ecgValue;
         } catch (Exception e) {
             System.err.println("An error occurred while generating ECG data for patient " + patientId);
-            e.printStackTrace(); // This will print the stack trace to help identify where the error occurred.
+            e.printStackTrace();
         }
     }
 
+    /**
+     * Computes one sample of a simplified ECG waveform.
+     *
+     * @param patientId    patient identifier (used implicitly via lastEcgValue)
+     * @param lastEcgValue the previous ECG value (currently unused but kept
+     *                     for potential future smoothing)
+     * @return the synthesized ECG sample value
+     */
     private double simulateEcgWaveform(int patientId, double lastEcgValue) {
-        // Simplified ECG waveform generation based on sinusoids
-        double hr = 60.0 + random.nextDouble() * 20.0; // Simulate heart rate variability between 60 and 80 bpm
-        double t = System.currentTimeMillis() / 1000.0; // Use system time to simulate continuous time
-        double ecgFrequency = hr / 60.0; // Convert heart rate to Hz
+        double hr = 60.0 + random.nextDouble() * 20.0;
+        double t = System.currentTimeMillis() / 1000.0;
+        double ecgFrequency = hr / 60.0;
 
-        // Simulate different components of the ECG signal
         double pWave = 0.1 * Math.sin(2 * PI * ecgFrequency * t);
-        double qrsComplex = 0.5 * Math.sin(2 * PI * 3 * ecgFrequency * t); // QRS is higher frequency
-        double tWave = 0.2 * Math.sin(2 * PI * 2 * ecgFrequency * t + PI / 4); // T wave is offset
+        double qrsComplex = 0.5 * Math.sin(2 * PI * 3 * ecgFrequency * t);
+        double tWave = 0.2 * Math.sin(2 * PI * 2 * ecgFrequency * t + PI / 4);
 
-        return pWave + qrsComplex + tWave + random.nextDouble() * 0.05; // Add small noise
+        return pWave + qrsComplex + tWave + random.nextDouble() * 0.05;
     }
 }

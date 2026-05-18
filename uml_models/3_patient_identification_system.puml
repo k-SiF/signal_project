@@ -1,0 +1,58 @@
+@startuml PatientIdentificationSystem
+title Patient Identification System
+
+class IncomingDataRecord {
+    - simulatorPatientId: int
+    - recordType: String
+    - measurementValue: double
+    - timestamp: long
+}
+
+class PatientIdentifier {
+    - registry: HospitalPatientRegistry
+    + identify(record: IncomingDataRecord): HospitalPatient
+    - lookupByExternalId(id): HospitalPatient
+}
+
+class HospitalPatientRegistry {
+    - patientsByExternalId: Map<Integer, HospitalPatient>
+    + register(patient: HospitalPatient)
+    + findByExternalId(id: int): Optional<HospitalPatient>
+}
+
+class HospitalPatient {
+    - hospitalId: String
+    - externalId: int
+    - name: String
+    - dateOfBirth: LocalDate
+    - admissionDate: LocalDate
+    + getHospitalId(): String
+    + getExternalId(): int
+}
+
+class IdentityManager {
+    - registry: HospitalPatientRegistry
+    - unmatched: List<IncomingDataRecord>
+    + handle(record: IncomingDataRecord)
+    + getUnmatched(): List<IncomingDataRecord>
+    - logMismatch(record)
+}
+
+class IdentityMismatchException <<Exception>>
+
+PatientIdentifier o-- HospitalPatientRegistry : queries
+HospitalPatientRegistry "1" o-- "*" HospitalPatient : holds
+IdentityManager o-- HospitalPatientRegistry
+IdentityManager ..> PatientIdentifier : delegates lookup
+IdentityManager ..> IdentityMismatchException : throws on hard mismatch
+PatientIdentifier ..> IncomingDataRecord : reads
+
+note bottom of IdentityManager
+  Soft mismatches (no match)
+  are buffered for review.
+  Hard mismatches (conflicting
+  match) throw an exception
+  for upstream handling.
+end note
+
+@enduml

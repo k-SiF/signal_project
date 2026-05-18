@@ -1,0 +1,88 @@
+@startuml AlertGenerationSystem
+title Alert Generation System
+
+interface IAlert {
+    + getPatientId(): String
+    + getCondition(): String
+    + getTimestamp(): long
+    + getPriority(): String
+}
+
+class Alert {
+    - patientId: String
+    - condition: String
+    - timestamp: long
+    + Alert(patientId, condition, timestamp)
+}
+
+abstract class AlertFactory {
+    + {abstract} createAlert(patientId, condition, timestamp): Alert
+}
+
+class BloodPressureAlertFactory
+class BloodOxygenAlertFactory
+class ECGAlertFactory
+
+interface AlertStrategy {
+    + checkAlert(patientId, records): Alert
+}
+
+class BloodPressureStrategy {
+    - SYSTOLIC_HIGH: double
+    - SYSTOLIC_LOW: double
+    - TREND_DELTA: double
+}
+
+class OxygenSaturationStrategy {
+    - LOW_THRESHOLD: double
+    - DROP_THRESHOLD: double
+}
+
+class HeartRateStrategy {
+    - WINDOW_SIZE: int
+    - PEAK_MULTIPLIER: double
+}
+
+abstract class AlertDecorator {
+    # wrapped: IAlert
+}
+
+class PriorityAlertDecorator {
+    - priority: String
+}
+
+class RepeatedAlertDecorator {
+    - repeatIntervalSeconds: long
+}
+
+class AlertGenerator {
+    - dataStorage: DataStorage
+    - strategies: List<AlertStrategy>
+    - triggered: List<IAlert>
+    + evaluateData(patient: Patient)
+    # triggerAlert(alert: IAlert)
+}
+
+Alert ..|> IAlert
+AlertDecorator ..|> IAlert
+PriorityAlertDecorator --|> AlertDecorator
+RepeatedAlertDecorator --|> AlertDecorator
+AlertDecorator o-- IAlert : wraps
+
+BloodPressureAlertFactory --|> AlertFactory
+BloodOxygenAlertFactory --|> AlertFactory
+ECGAlertFactory --|> AlertFactory
+AlertFactory ..> Alert : creates
+
+BloodPressureStrategy ..|> AlertStrategy
+OxygenSaturationStrategy ..|> AlertStrategy
+HeartRateStrategy ..|> AlertStrategy
+BloodPressureStrategy ..> BloodPressureAlertFactory : uses
+OxygenSaturationStrategy ..> BloodOxygenAlertFactory : uses
+HeartRateStrategy ..> ECGAlertFactory : uses
+
+AlertGenerator o-- "1..*" AlertStrategy : uses
+AlertGenerator ..> PriorityAlertDecorator : decorates
+AlertGenerator ..> DataStorage : reads from
+
+@enduml

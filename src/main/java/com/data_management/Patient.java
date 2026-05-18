@@ -4,18 +4,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Represents a patient and manages their medical records.
- * This class stores patient-specific data, allowing for the addition and
- * retrieval
- * of medical records based on specified criteria.
+ * Represents a single patient and manages their medical records.
+ *
+ * <p>Holds a list of {@link PatientRecord} instances in insertion order and
+ * provides time-range retrieval. Records may interleave different
+ * measurement types (ECG, BloodPressure, etc.) — filtering by type is the
+ * caller's responsibility.
+ *
+ * @author 6439058
  */
 public class Patient {
     private int patientId;
     private List<PatientRecord> patientRecords;
 
     /**
-     * Constructs a new Patient with a specified ID.
-     * Initializes an empty list of patient records.
+     * Constructs a new Patient with the given ID and an empty record list.
      *
      * @param patientId the unique identifier for the patient
      */
@@ -24,16 +27,17 @@ public class Patient {
         this.patientRecords = new ArrayList<>();
     }
 
+    /** @return the unique ID of this patient */
+    public int getPatientId() {
+        return patientId;
+    }
+
     /**
-     * Adds a new record to this patient's list of medical records.
-     * The record is created with the specified measurement value, record type, and
-     * timestamp.
+     * Appends a new record for this patient.
      *
-     * @param measurementValue the measurement value to store in the record
-     * @param recordType       the type of record, e.g., "HeartRate",
-     *                         "BloodPressure"
-     * @param timestamp        the time at which the measurement was taken, in
-     *                         milliseconds since UNIX epoch
+     * @param measurementValue the measurement value
+     * @param recordType       the type of measurement (e.g. {@code "ECG"})
+     * @param timestamp        epoch millis when the measurement was taken
      */
     public void addRecord(double measurementValue, String recordType, long timestamp) {
         PatientRecord record = new PatientRecord(this.patientId, measurementValue, recordType, timestamp);
@@ -41,18 +45,35 @@ public class Patient {
     }
 
     /**
-     * Retrieves a list of PatientRecord objects for this patient that fall within a
-     * specified time range.
-     * The method filters records based on the start and end times provided.
+     * Returns all records for this patient whose timestamp falls within the
+     * inclusive range {@code [startTime, endTime]}.
      *
-     * @param startTime the start of the time range, in milliseconds since UNIX
-     *                  epoch
-     * @param endTime   the end of the time range, in milliseconds since UNIX epoch
-     * @return a list of PatientRecord objects that fall within the specified time
-     *         range
+     * <p>The bounds are inclusive on both ends so a zero-width query
+     * ({@code startTime == endTime}) still returns records at exactly that
+     * timestamp, which is the principle-of-least-surprise interpretation.
+     *
+     * @param startTime inclusive start of the range (epoch millis)
+     * @param endTime   inclusive end of the range (epoch millis)
+     * @return a new list of matching records; never null, may be empty
      */
     public List<PatientRecord> getRecords(long startTime, long endTime) {
-        // TODO Implement and test this method
-        return patientRecords;
+        List<PatientRecord> filteredRecords = new ArrayList<>();
+        for (PatientRecord record : patientRecords) {
+            long ts = record.getTimestamp();
+            if (ts >= startTime && ts <= endTime) {
+                filteredRecords.add(record);
+            }
+        }
+        return filteredRecords;
+    }
+
+    /**
+     * Returns all records for this patient, unfiltered.
+     * Used by the alert evaluation logic that needs the full history.
+     *
+     * @return a new list of all records; never null
+     */
+    public List<PatientRecord> getAllRecords() {
+        return new ArrayList<>(patientRecords);
     }
 }

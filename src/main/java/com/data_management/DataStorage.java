@@ -1,111 +1,140 @@
 package com.data_management;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import com.alerts.AlertGenerator;
 
 /**
- * Manages storage and retrieval of patient data within a healthcare monitoring
- * system.
- * This class serves as a repository for all patient records, organized by
- * patient IDs.
+ * Central repository for all patient data within the monitoring system.
+ *
+ * <p>Implemented as a <b>Singleton</b> (Week 4): use {@link #getInstance()}
+ * to obtain the shared instance. A public no-arg constructor is retained for
+ * unit-testability so tests can build isolated storage instances without
+ * touching global state.
+ *
+ * <p>The internal patient map uses {@link ConcurrentHashMap} so concurrent
+ * inserts from a real-time {@code DataReader} (Week 5 WebSocket client) do
+ * not race with reads from the alert engine.
+ *
+ * @author 6439058
  */
 public class DataStorage {
-    private Map<Integer, Patient> patientMap; // Stores patient objects indexed by their unique patient ID.
+
+    /** Singleton instance, lazily initialized. */
+    private static DataStorage instance;
+
+    /** Patient ID → Patient. Concurrent so reads and writes can interleave safely. */
+    private Map<Integer, Patient> patientMap;
 
     /**
-     * Constructs a new instance of DataStorage, initializing the underlying storage
-     * structure.
+     * Public constructor — retained for testability.
+     *
+     * <p>Most application code should call {@link #getInstance()} instead so
+     * everyone shares one storage instance. Tests should call this constructor
+     * directly to obtain an isolated instance with no cross-test contamination.
      */
     public DataStorage() {
-        this.patientMap = new HashMap<>();
+        this.patientMap = new ConcurrentHashMap<>();
     }
 
     /**
-     * Adds or updates patient data in the storage.
-     * If the patient does not exist, a new Patient object is created and added to
-     * the storage.
-     * Otherwise, the new data is added to the existing patient's records.
+     * Returns the shared singleton instance, creating it on first call.
      *
-     * @param patientId        the unique identifier of the patient
-     * @param measurementValue the value of the health metric being recorded
-     * @param recordType       the type of record, e.g., "HeartRate",
-     *                         "BloodPressure"
-     * @param timestamp        the time at which the measurement was taken, in
-     *                         milliseconds since the Unix epoch
+     * @return the singleton {@code DataStorage}
+     */
+    public static synchronized DataStorage getInstance() {
+        if (instance == null) {
+            instance = new DataStorage();
+        }
+        return instance;
+    }
+
+    /**
+     * Adds a measurement to a patient's record list, creating the {@link Patient}
+     * on the fly if no record exists yet for that patient ID.
+     *
+     * @param patientId        unique identifier of the patient
+     * @param measurementValue the measured value
+     * @param recordType       record type (e.g. {@code "HeartRate"})
+     * @param timestamp        epoch millis when the measurement was taken
      */
     public void addPatientData(int patientId, double measurementValue, String recordType, long timestamp) {
         Patient patient = patientMap.get(patientId);
         if (patient == null) {
-            patient = new Patient(patientId);
-            patientMap.put(patientId, patient);
+            // Race-safe creation: putIfAbsent returns the existing value if
+            // another thread inserted concurrently.
+            Patient created = new Patient(patientId);
+            Patient existing = ((ConcurrentHashMap<Integer, Patient>) patientMap).putIfAbsent(patientId, created);
+            patient = (existing != null) ? existing : created;
         }
         patient.addRecord(measurementValue, recordType, timestamp);
     }
 
     /**
-     * Retrieves a list of PatientRecord objects for a specific patient, filtered by
-     * a time range.
+     * Retrieves a patient's records within a closed time range.
      *
-     * @param patientId the unique identifier of the patient whose records are to be
-     *                  retrieved
-     * @param startTime the start of the time range, in milliseconds since the Unix
-     *                  epoch
-     * @param endTime   the end of the time range, in milliseconds since the Unix
-     *                  epoch
-     * @return a list of PatientRecord objects that fall within the specified time
-     *         range
+     * @param patientId unique identifier of the patient
+     * @param startTime inclusive start (epoch millis)
+     * @param endTime   inclusive end (epoch millis)
+     * @return matching records, or an empty list if no patient exists
      */
     public List<PatientRecord> getRecords(int patientId, long startTime, long endTime) {
         Patient patient = patientMap.get(patientId);
         if (patient != null) {
             return patient.getRecords(startTime, endTime);
         }
-        return new ArrayList<>(); // return an empty list if no patient is found
+        return new ArrayList<>();
     }
 
     /**
-     * Retrieves a collection of all patients stored in the data storage.
+     * Returns a snapshot list of all patients currently in storage.
      *
-     * @return a list of all patients
+     * @return a new list containing all patients
      */
     public List<Patient> getAllPatients() {
         return new ArrayList<>(patientMap.values());
     }
 
     /**
-     * The main method for the DataStorage class.
-     * Initializes the system, reads data into storage, and continuously monitors
-     * and evaluates patient data.
-     * 
-     * @param args command line arguments
+     * Demonstration entry point: loads any available data via a
+     * {@link DataReader}, then runs the alert engine across all patients.
+     *
+     * <p>Argument 0, if present, is treated as a directory path for a
+     * {@link FileDataReader}. Otherwise no data is loaded and the alert
+     * engine just runs against the empty storage.
+     *
+     * @param args optional [0] = output directory produced by the simulator's
+     *             {@code --output file:<dir>} mode
      */
     public static void main(String[] args) {
-        // DataReader is not defined in this scope, should be initialized appropriately.
-        // DataReader reader = new SomeDataReaderImplementation("path/to/data");
-        DataStorage storage = new DataStorage();
+        DataStorage storage = DataStorage.getInstance();
 
-        // Assuming the reader has been properly initialized and can read data into the
-        // storage
-        // reader.readData(storage);
-
-        // Example of using DataStorage to retrieve and print records for a patient
-        List<PatientRecord> records = storage.getRecords(1, 1700000000000L, 1800000000000L);
-        for (PatientRecord record : records) {
-            System.out.println("Record for Patient ID: " + record.getPatientId() +
-                    ", Type: " + record.getRecordType() +
-                    ", Data: " + record.getMeasurementValue() +
-                    ", Timestamp: " + record.getTimestamp());
+        if (args.length > 0) {
+            try {
+                DataReader reader = new FileDataReader(args[0]);
+                reader.readData(storage);
+                System.out.println("Loaded data from " + args[0]);
+            } catch (Exception e) {
+                System.err.println("Could not load data: " + e.getMessage());
+            }
         }
 
-        // Initialize the AlertGenerator with the storage
-        AlertGenerator alertGenerator = new AlertGenerator(storage);
+        for (Patient p : storage.getAllPatients()) {
+            List<PatientRecord> records = p.getAllRecords();
+            for (PatientRecord r : records) {
+                System.out.println("Patient " + r.getPatientId()
+                        + " | " + r.getRecordType()
+                        + " = " + r.getMeasurementValue()
+                        + " @ " + r.getTimestamp());
+            }
+        }
 
-        // Evaluate all patients' data to check for conditions that may trigger alerts
-        for (Patient patient : storage.getAllPatients()) {
-            alertGenerator.evaluateData(patient);
+        AlertGenerator alertGenerator = new AlertGenerator(storage);
+        for (Patient p : storage.getAllPatients()) {
+            alertGenerator.evaluateData(p);
         }
     }
 }

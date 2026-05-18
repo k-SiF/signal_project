@@ -1,0 +1,65 @@
+@startuml DataStorageSystem
+title Data Storage System
+
+class DataStorage <<Singleton>> {
+    - {static} instance: DataStorage
+    - patientMap: Map<Integer, Patient>
+    - DataStorage()
+    + {static} getInstance(): DataStorage
+    + addPatientData(id, value, type, ts)
+    + getRecords(id, start, end): List<PatientRecord>
+    + getAllPatients(): List<Patient>
+}
+
+class Patient {
+    - patientId: int
+    - patientRecords: List<PatientRecord>
+    + addRecord(value, type, ts)
+    + getRecords(start, end): List<PatientRecord>
+    + getAllRecords(): List<PatientRecord>
+}
+
+class PatientRecord {
+    - patientId: int
+    - recordType: String
+    - measurementValue: double
+    - timestamp: long
+    + getPatientId(): int
+    + getMeasurementValue(): double
+    + getRecordType(): String
+    + getTimestamp(): long
+}
+
+interface DataReader {
+    + readData(storage: DataStorage)
+    + startStreaming(storage: DataStorage)
+    + stopStreaming()
+}
+
+class FileDataReader {
+    - directoryPath: String
+}
+
+class WebSocketDataReader {
+    - serverUri: URI
+}
+
+DataStorage "1" o-- "*" Patient : indexed by ID
+Patient "1" o-- "*" PatientRecord : in time order
+FileDataReader ..|> DataReader
+WebSocketDataReader ..|> DataReader
+DataReader ..> DataStorage : feeds
+
+note right of DataStorage
+  Singleton: only one repository
+  per JVM. Public constructor
+  retained for testability.
+end note
+
+note right of Patient
+  records may interleave many
+  measurement types; filtering
+  by type is the caller's job
+end note
+
+@enduml

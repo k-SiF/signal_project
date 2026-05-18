@@ -4,42 +4,59 @@ import java.util.Random;
 
 import com.cardio_generator.outputs.OutputStrategy;
 
+/**
+ * Generates simulated blood-test values (cholesterol, white blood cells, red
+ * blood cells) for a population of patients.
+ *
+ * <p>Each patient is assigned random baselines on construction. On each call
+ * to {@link #generate}, three measurements are emitted with small random
+ * deviations from those baselines: cholesterol (±5 mg/dL), white blood cells
+ * (±0.5), red blood cells (±0.1).
+ *
+ * @author 6439058
+ */
 public class BloodLevelsDataGenerator implements PatientDataGenerator {
     private static final Random random = new Random();
     private final double[] baselineCholesterol;
     private final double[] baselineWhiteCells;
     private final double[] baselineRedCells;
 
+    /**
+     * Constructs the generator with random baselines for each patient.
+     *
+     * @param patientCount number of patients to support
+     */
     public BloodLevelsDataGenerator(int patientCount) {
-        // Initialize arrays to store baseline values for each patient
         baselineCholesterol = new double[patientCount + 1];
         baselineWhiteCells = new double[patientCount + 1];
         baselineRedCells = new double[patientCount + 1];
 
-        // Generate baseline values for each patient
         for (int i = 1; i <= patientCount; i++) {
-            baselineCholesterol[i] = 150 + random.nextDouble() * 50; // Initial random baseline
-            baselineWhiteCells[i] = 4 + random.nextDouble() * 6; // Initial random baseline
-            baselineRedCells[i] = 4.5 + random.nextDouble() * 1.5; // Initial random baseline
+            baselineCholesterol[i] = 150 + random.nextDouble() * 50;
+            baselineWhiteCells[i] = 4 + random.nextDouble() * 6;
+            baselineRedCells[i] = 4.5 + random.nextDouble() * 1.5;
         }
     }
 
+    /**
+     * Emits one set of three blood-test readings for the patient.
+     *
+     * @param patientId      patient identifier (1-based)
+     * @param outputStrategy destination for the readings
+     */
     @Override
     public void generate(int patientId, OutputStrategy outputStrategy) {
         try {
-            // Generate values around the baseline for realism
-            double cholesterol = baselineCholesterol[patientId] + (random.nextDouble() - 0.5) * 10; // Small variation
-            double whiteCells = baselineWhiteCells[patientId] + (random.nextDouble() - 0.5) * 1; // Small variation
-            double redCells = baselineRedCells[patientId] + (random.nextDouble() - 0.5) * 0.2; // Small variation
+            double cholesterol = baselineCholesterol[patientId] + (random.nextDouble() - 0.5) * 10;
+            double whiteCells = baselineWhiteCells[patientId] + (random.nextDouble() - 0.5) * 1;
+            double redCells = baselineRedCells[patientId] + (random.nextDouble() - 0.5) * 0.2;
 
-            // Output the generated values
             outputStrategy.output(patientId, System.currentTimeMillis(), "Cholesterol", Double.toString(cholesterol));
-            outputStrategy.output(patientId, System.currentTimeMillis(), "WhiteBloodCells",
-                    Double.toString(whiteCells));
+            outputStrategy.output(patientId, System.currentTimeMillis(), "WhiteBloodCells", Double.toString(whiteCells));
             outputStrategy.output(patientId, System.currentTimeMillis(), "RedBloodCells", Double.toString(redCells));
         } catch (Exception e) {
             System.err.println("An error occurred while generating blood levels data for patient " + patientId);
-            e.printStackTrace(); // This will print the stack trace to help identify where the error occurred.
+            e.printStackTrace();
         }
     }
 }

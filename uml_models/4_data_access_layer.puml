@@ -1,0 +1,77 @@
+@startuml DataAccessLayer
+title Data Access Layer
+
+abstract class DataListener {
+    # parser: DataParser
+    # storage: DataStorage
+    + {abstract} start()
+    + {abstract} stop()
+    # onMessageReceived(raw: String)
+}
+
+class TcpDataListener {
+    - port: int
+    - serverSocket: ServerSocket
+}
+
+class WebSocketDataListener {
+    - serverUri: URI
+    - client: WebSocketClient
+}
+
+class FileDataListener {
+    - directoryPath: String
+}
+
+interface DataParser {
+    + parse(raw: String): IncomingDataRecord
+}
+
+class CsvDataParser
+class JsonDataParser
+class FileLineDataParser
+
+class IncomingDataRecord {
+    + patientId: int
+    + timestamp: long
+    + label: String
+    + dataStr: String
+}
+
+class DataSourceAdapter {
+    - listener: DataListener
+    + connect(storage: DataStorage)
+    + disconnect()
+}
+
+class DataStorage <<Singleton>>
+
+TcpDataListener --|> DataListener
+WebSocketDataListener --|> DataListener
+FileDataListener --|> DataListener
+
+CsvDataParser ..|> DataParser
+JsonDataParser ..|> DataParser
+FileLineDataParser ..|> DataParser
+
+DataListener o-- DataParser : strategy
+DataParser ..> IncomingDataRecord : produces
+DataSourceAdapter o-- DataListener
+DataSourceAdapter ..> DataStorage : feeds parsed records
+
+note right of DataParser
+  Strategy pattern lets the
+  same listener swap formats
+  (CSV vs JSON) without code
+  changes outside the parser.
+end note
+
+note bottom of DataListener
+  All transport-specific code
+  lives in subclasses. Upper
+  layers depend only on this
+  abstract type, keeping them
+  agnostic to TCP/WebSocket/File.
+end note
+
+@enduml
